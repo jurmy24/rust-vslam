@@ -1,1 +1,1 @@
-pub use crate::math::{ImuBias, ImuNoise, ImuSample, PreintegratedState, Preintegrator, GRAVITY};
+pub use crate::math::{GRAVITY, ImuBias, ImuNoise, ImuSample, PreintegratedState, Preintegrator};

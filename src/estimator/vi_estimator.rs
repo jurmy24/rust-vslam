@@ -57,7 +57,8 @@ impl VisualInertialEstimator {
         }
 
         let (pred_rot, pred_pos, pred_vel) =
-            self.preintegrator.propagate(self.pose.rotation, self.pose.translation, self.velocity);
+            self.preintegrator
+                .propagate(self.pose.rotation, self.pose.translation, self.velocity);
         let imu_prior = SE3 {
             rotation: pred_rot,
             translation: pred_pos,
@@ -115,11 +116,7 @@ impl VisualInertialEstimator {
         (pts3d, pts2d)
     }
 
-    fn build_world_points(
-        &self,
-        frame: &StereoFrame,
-        pose: &SE3,
-    ) -> HashMap<i32, Vector3<f64>> {
+    fn build_world_points(&self, frame: &StereoFrame, pose: &SE3) -> HashMap<i32, Vector3<f64>> {
         let mut map = HashMap::new();
         for (idx, p_opt) in frame.points_cam.iter().enumerate() {
             if let Some(p_cam) = p_opt {

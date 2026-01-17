@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use csv::ReaderBuilder;
 use nalgebra::{Matrix3, Matrix4, Vector3};
 use opencv::prelude::*;
@@ -91,8 +91,14 @@ impl EurocDataset {
         // Expect synchronized timestamps
         let timestamp_ns = left_entry.timestamp_ns;
 
-        let left_path = self.dataset_path.join("cam0/data").join(&left_entry.filename);
-        let right_path = self.dataset_path.join("cam1/data").join(&right_entry.filename);
+        let left_path = self
+            .dataset_path
+            .join("cam0/data")
+            .join(&left_entry.filename);
+        let right_path = self
+            .dataset_path
+            .join("cam1/data")
+            .join(&right_entry.filename);
 
         let left = imgcodecs::imread(left_path.to_str().unwrap(), IMREAD_GRAYSCALE)
             .with_context(|| format!("Failed to read left image {:?}", left_path))?;
@@ -225,17 +231,16 @@ fn load_stereo_calibration(root: &Path) -> Result<StereoCalibration> {
 /// Convert EuRoC intrinsics [fx, fy, cx, cy] to 3x3 camera matrix
 fn intrinsics_to_matrix3(intrinsics: &[f64]) -> Result<Matrix3<f64>> {
     if intrinsics.len() != 4 {
-        bail!("Expected 4 intrinsics [fx, fy, cx, cy], got {}", intrinsics.len());
+        bail!(
+            "Expected 4 intrinsics [fx, fy, cx, cy], got {}",
+            intrinsics.len()
+        );
     }
     let fx = intrinsics[0];
     let fy = intrinsics[1];
     let cx = intrinsics[2];
     let cy = intrinsics[3];
-    Ok(Matrix3::new(
-        fx, 0.0, cx,
-        0.0, fy, cy,
-        0.0, 0.0, 1.0,
-    ))
+    Ok(Matrix3::new(fx, 0.0, cx, 0.0, fy, cy, 0.0, 0.0, 1.0))
 }
 
 fn transform_from(data: &[f64]) -> Result<SE3> {

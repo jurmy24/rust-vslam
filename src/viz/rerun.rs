@@ -16,7 +16,7 @@
 //!         points      - 3D point cloud (colored by depth)
 
 use nalgebra::Vector3;
-use opencv::core::{Mat, Vector, KeyPoint, DMatch};
+use opencv::core::{DMatch, KeyPoint, Mat, Vector};
 use opencv::prelude::*;
 use rerun::{RecordingStream, external::glam};
 
@@ -32,10 +32,10 @@ impl RerunVisualizer {
         let rec = rerun::RecordingStreamBuilder::new(app_name)
             .spawn()
             .expect("Failed to spawn rerun viewer");
-        
+
         // Set up coordinate system (Right-Down-Forward, typical camera convention)
         rec.log_static("world", &rerun::ViewCoordinates::RDF()).ok();
-        
+
         Self { rec }
     }
 
@@ -49,54 +49,63 @@ impl RerunVisualizer {
     pub fn log_stereo_frame(&self, frame: &StereoFrame, left_image: &Mat, right_image: &Mat) {
         self.set_time(frame.timestamp_ns);
         self.log_images(left_image, right_image);
-        self.log_features(&frame.left_features.keypoints, &frame.right_features.keypoints);
-        self.log_matches(&frame.left_features.keypoints, &frame.right_features.keypoints, &frame.matches_lr);
+        self.log_features(
+            &frame.left_features.keypoints,
+            &frame.right_features.keypoints,
+        );
+        self.log_matches(
+            &frame.left_features.keypoints,
+            &frame.right_features.keypoints,
+            &frame.matches_lr,
+        );
         self.log_3d_points_from_frame(frame);
     }
 
     fn log_images(&self, left: &Mat, right: &Mat) {
         // Convert Mat to image data
         if let Ok((data, width, height)) = mat_to_image_data(left) {
-            self.rec.log(
-                "camera/left/image", 
-                &rerun::Image::from_l8(data, [width, height])
-            ).ok();
+            self.rec
+                .log(
+                    "camera/left/image",
+                    &rerun::Image::from_l8(data, [width, height]),
+                )
+                .ok();
         }
         if let Ok((data, width, height)) = mat_to_image_data(right) {
-            self.rec.log(
-                "camera/right/image", 
-                &rerun::Image::from_l8(data, [width, height])
-            ).ok();
+            self.rec
+                .log(
+                    "camera/right/image",
+                    &rerun::Image::from_l8(data, [width, height]),
+                )
+                .ok();
         }
     }
 
     fn log_features(&self, left_kps: &Vector<KeyPoint>, right_kps: &Vector<KeyPoint>) {
         // Left image features (green)
-        let left_pts: Vec<[f32; 2]> = left_kps
-            .iter()
-            .map(|kp| [kp.pt().x, kp.pt().y])
-            .collect();
+        let left_pts: Vec<[f32; 2]> = left_kps.iter().map(|kp| [kp.pt().x, kp.pt().y]).collect();
         if !left_pts.is_empty() {
-            self.rec.log(
-                "camera/left/features",
-                &rerun::Points2D::new(left_pts)
-                    .with_colors([[0u8, 255, 0]])  // Green
-                    .with_radii([3.0f32]),
-            ).ok();
+            self.rec
+                .log(
+                    "camera/left/features",
+                    &rerun::Points2D::new(left_pts)
+                        .with_colors([[0u8, 255, 0]]) // Green
+                        .with_radii([3.0f32]),
+                )
+                .ok();
         }
 
         // Right image features (green)
-        let right_pts: Vec<[f32; 2]> = right_kps
-            .iter()
-            .map(|kp| [kp.pt().x, kp.pt().y])
-            .collect();
+        let right_pts: Vec<[f32; 2]> = right_kps.iter().map(|kp| [kp.pt().x, kp.pt().y]).collect();
         if !right_pts.is_empty() {
-            self.rec.log(
-                "camera/right/features",
-                &rerun::Points2D::new(right_pts)
-                    .with_colors([[0u8, 255, 0]])  // Green
-                    .with_radii([3.0f32]),
-            ).ok();
+            self.rec
+                .log(
+                    "camera/right/features",
+                    &rerun::Points2D::new(right_pts)
+                        .with_colors([[0u8, 255, 0]]) // Green
+                        .with_radii([3.0f32]),
+                )
+                .ok();
         }
     }
 
@@ -125,22 +134,26 @@ impl RerunVisualizer {
 
         // Matched points in left image (red)
         if !left_matched.is_empty() {
-            self.rec.log(
-                "camera/left/matched",
-                &rerun::Points2D::new(left_matched)
-                    .with_colors([[255u8, 0, 0]])  // Red
-                    .with_radii([4.0f32]),
-            ).ok();
+            self.rec
+                .log(
+                    "camera/left/matched",
+                    &rerun::Points2D::new(left_matched)
+                        .with_colors([[255u8, 0, 0]]) // Red
+                        .with_radii([4.0f32]),
+                )
+                .ok();
         }
 
         // Matched points in right image (red)
         if !right_matched.is_empty() {
-            self.rec.log(
-                "camera/right/matched",
-                &rerun::Points2D::new(right_matched)
-                    .with_colors([[255u8, 0, 0]])  // Red
-                    .with_radii([4.0f32]),
-            ).ok();
+            self.rec
+                .log(
+                    "camera/right/matched",
+                    &rerun::Points2D::new(right_matched)
+                        .with_colors([[255u8, 0, 0]]) // Red
+                        .with_radii([4.0f32]),
+                )
+                .ok();
         }
     }
 
@@ -162,8 +175,8 @@ impl RerunVisualizer {
         let depths: Vec<f64> = valid_points.iter().map(|p| p.z).collect();
         let mut sorted_depths = depths.clone();
         sorted_depths.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        
-        let depth_min = sorted_depths[sorted_depths.len() * 5 / 100];  // 5th percentile
+
+        let depth_min = sorted_depths[sorted_depths.len() * 5 / 100]; // 5th percentile
         let depth_max = sorted_depths[sorted_depths.len() * 95 / 100]; // 95th percentile
         let depth_range = (depth_max - depth_min).max(0.1);
 
@@ -185,12 +198,14 @@ impl RerunVisualizer {
             })
             .collect();
 
-        self.rec.log(
-            "world/points",
-            &rerun::Points3D::new(pts)
-                .with_colors(colors)
-                .with_radii([0.02f32]),
-        ).ok();
+        self.rec
+            .log(
+                "world/points",
+                &rerun::Points3D::new(pts)
+                    .with_colors(colors)
+                    .with_radii([0.02f32]),
+            )
+            .ok();
     }
 
     pub fn log_pose(&self, pose: &SE3) {
@@ -205,10 +220,12 @@ impl RerunVisualizer {
             pose.rotation.coords.z as f32,
             pose.rotation.w as f32,
         );
-        self.rec.log(
-            "world/camera",
-            &rerun::Transform3D::from_translation_rotation(translation, rotation),
-        ).ok();
+        self.rec
+            .log(
+                "world/camera",
+                &rerun::Transform3D::from_translation_rotation(translation, rotation),
+            )
+            .ok();
     }
 
     pub fn log_trajectory(&self, positions: &[Vector3<f64>]) {
@@ -219,23 +236,27 @@ impl RerunVisualizer {
             .iter()
             .map(|p| [p.x as f32, p.y as f32, p.z as f32])
             .collect();
-        
+
         // Yellow trajectory line
-        self.rec.log(
-            "world/trajectory",
-            &rerun::LineStrips3D::new([pts.clone()])
-                .with_colors([[255u8, 255, 0]])
-                .with_radii([0.01f32]),
-        ).ok();
+        self.rec
+            .log(
+                "world/trajectory",
+                &rerun::LineStrips3D::new([pts.clone()])
+                    .with_colors([[255u8, 255, 0]])
+                    .with_radii([0.01f32]),
+            )
+            .ok();
 
         // Current position as cyan point
         if let Some(current) = pts.last() {
-            self.rec.log(
-                "world/trajectory/current",
-                &rerun::Points3D::new([*current])
-                    .with_colors([[0u8, 255, 255]])  // Cyan
-                    .with_radii([0.05f32]),
-            ).ok();
+            self.rec
+                .log(
+                    "world/trajectory/current",
+                    &rerun::Points3D::new([*current])
+                        .with_colors([[0u8, 255, 255]]) // Cyan
+                        .with_radii([0.05f32]),
+                )
+                .ok();
         }
     }
 
@@ -247,12 +268,14 @@ impl RerunVisualizer {
             .iter()
             .map(|p| [p.x as f32, p.y as f32, p.z as f32])
             .collect();
-        self.rec.log(
-            "world/map",
-            &rerun::Points3D::new(pts)
-                .with_colors([[0u8, 200, 255]])
-                .with_radii([0.03f32]),
-        ).ok();
+        self.rec
+            .log(
+                "world/map",
+                &rerun::Points3D::new(pts)
+                    .with_colors([[0u8, 200, 255]])
+                    .with_radii([0.03f32]),
+            )
+            .ok();
     }
 }
 
@@ -260,10 +283,10 @@ impl RerunVisualizer {
 fn mat_to_image_data(mat: &Mat) -> Result<(Vec<u8>, u32, u32), opencv::Error> {
     let rows = mat.rows() as u32;
     let cols = mat.cols() as u32;
-    
+
     // Get raw data
     let data = mat.data_bytes()?;
     let image_data: Vec<u8> = data.to_vec();
-    
+
     Ok((image_data, cols, rows))
 }

@@ -14,9 +14,14 @@ fn main() -> Result<()> {
 
     println!("Loading EuRoC dataset from: {}", dataset_path);
     let dataset = EurocDataset::new(&dataset_path)?;
-    println!("Loaded {} stereo frames, {} IMU samples", dataset.len(), dataset.imu_entries.len());
+    println!(
+        "Loaded {} stereo frames, {} IMU samples",
+        dataset.len(),
+        dataset.imu_entries.len()
+    );
 
-    let cam = CameraModel::from_k_and_baseline(dataset.calibration.k_left, dataset.calibration.baseline);
+    let cam =
+        CameraModel::from_k_and_baseline(dataset.calibration.k_left, dataset.calibration.baseline);
 
     let mut stereo = StereoProcessor::new(cam, 1200)?;
     let mut estimator = VisualInertialEstimator::new(cam)?;
@@ -24,7 +29,7 @@ fn main() -> Result<()> {
 
     for i in 0..dataset.len() {
         let pair = dataset.stereo_pair(i)?;
-        
+
         // Collect IMU between current and next frame
         let t_start = pair.timestamp_ns;
         let t_end = if i + 1 < dataset.len() {
@@ -36,7 +41,7 @@ fn main() -> Result<()> {
 
         // Process stereo frame
         let stereo_frame = stereo.process(&pair.left, &pair.right, pair.timestamp_ns)?;
-        
+
         // Run visual-inertial estimator
         let pose = estimator.process_frame(stereo_frame.clone(), &imu_between)?;
 
